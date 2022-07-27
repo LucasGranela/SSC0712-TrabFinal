@@ -42,7 +42,7 @@ def getCorners(img):
 
 
 
-IMAGE_NAME = '/home/Logranela/Documents/Faculdade/programacaoRobosMoveis/image.jpeg'
+IMAGE_NAME = './image.jpeg'
 img = cv.imread(IMAGE_NAME, cv.IMREAD_COLOR)
 
 line_image = getImageWalls(img)

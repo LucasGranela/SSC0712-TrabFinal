@@ -1,4 +1,7 @@
 """
+Name: Alice Valença De Lorenci
+NUSP: 11200289
+
 Client of V-REP simulation server
 
 Before running the script, the simulation must be running on VREP (the robot script initializes the server).
@@ -17,6 +20,9 @@ flag, the waypoint is the objective, else the flag is the objective.
 
 import numpy as np
 import sys
+
+print( 'Number of arguments:', len(sys.argv), 'arguments.' )
+print( 'Argument List:', str(sys.argv) )
 
 try:
     import sim
@@ -146,63 +152,9 @@ def positionRelativeToPoint( reference, pose, verbose=False ):
     
     return errorPointPos, pose
 
-def positionRelativeToArtificialPoint( point, pose, verbose=False ):
-    """
-    Computes the robot pose with respect to the point.
-    Arguments:
-    - point: (x, y)
-    - pose: dictionary with keys:
-                "Position": robot position
-                "Orientation": robot orientation
-    Return:
-    - error: whether there was an error reading the signals
-    - pose: dictionary with additional keys: 
-                "DistanceToPoint": distance from robot to point
-                "AngleToPoint": angle between the line through robot and point and the scene's x axis ([0, 2pi])
-                "RotationToPoint": angle between robots orientation and the line through robot and point ([-pi, pi])
-                "PointPosition": point position
-    """
-    
-    errorPointPos = False
-
-    pose.update( {"DistanceToPoint":   0.0,
-                    "AngleToPoint":    0.0,
-                    "RotationToPoint": 0.0,
-                    "PointPosition":   0.0} )
-
-    if not errorPointPos:
-
-        pose["PointPosition"] = point
-
-        # compute distance to point
-        pose["DistanceToPoint"] = np.linalg.norm( np.array( pose["Position"][0:-1] ) - np.array( point ) )
-
-        # compute angle to point
-        pointTX = point[0] - pose["Position"][0]
-        pointTY = point[1] - pose["Position"][1]
-
-        pose["AngleToPoint"] = np.arctan2( pointTY, pointTX )
-        pose["AngleToPoint"] = pose["AngleToPoint"] if pose["AngleToPoint"]>=0 else 2*np.pi+pose["AngleToPoint"] # [0, 2pi]
-
-        # compute angular difference between orientation and relative position
-        pose["RotationToPoint"] = pose["AngleToPoint"] - pose["Orientation"]
-
-        if pose["RotationToPoint"] > np.pi:
-            pose["RotationToPoint"] -= 2.0*np.pi
-        elif pose["RotationToPoint"] < -np.pi:
-            pose["RotationToPoint"] += 2.0*np.pi
-
-        if verbose:
-            print( "Orientation: {:.2f} -- Angle to {}: {:.2f} -- Orientation to {}: {:.2f} -- Distance to {}: {:.2f}".format( pose["Orientation"], reference, pose["AngleToPoint"], reference, pose["RotationToPoint"], reference, pose["DistanceToPoint"] ) )
-    
-    return pose
-
-def moveTowardsFlag( point, path, verbose=False ):
+def moveTowardsFlag( verbose=False ):
     """
     Computes motor speeds needed to orient and move robot towards flag.
-    Parameters:
-    - point: current point on path
-    - path: path of points
     Return:
     - vLeft: left motor speed
     - vRight: right motor speed
@@ -211,41 +163,56 @@ def moveTowardsFlag( point, path, verbose=False ):
     - reference: which objective the robot is pursuing
     """
 
-    print("#{}: {}".format(point, path[point]))
-
-    toleranceFlag = 1.0
-    tolerancePoint = 5.0
+    tolerance = 1.0
 
     _, pose = getPioneerPose()
     errorFlag, pose = positionRelativeToPoint( "Flag", pose, verbose )
     # errorWaypoint, pose = positionRelativeToPoint( "Waypoint", pose, verbose )
-
-    pose = positionRelativeToArtificialPoint( path[point], pose, verbose )
+    errorWaypoint = True
 
     vLeft = 0
     vRight = 0
     reachedFlag = False
+ 
+    if errorWaypoint:       # no waypoints exist
+        validWaypoint = False
+    else:
+        delta = np.abs( pose["AngleToFlag"] - pose["AngleToWaypoint"] )
+        if delta > np.pi/2.0 or pose["DistanceToWaypoint"] < tolerance:
+            validWaypoint = False   # waypoint is behind robot, objective is now the flag
+        else:
+            validWaypoint = True
 
-    if( pose["DistanceToFlag"] <= toleranceFlag ):
+    if not validWaypoint:
+
+        reference = "Flag"
         if verbose:
-            print("[SUCCESS] Reached destination!")
-        reachedFlag = True  
-    else:     
+            print("OBJECTIVE: flag")
+
+        if( pose["DistanceToFlag"] > tolerance ):
+                # the greater the angular difference, the greater the adjustement
+                vRight = v0*pose["RotationToFlag"]/np.pi
+                vLeft = -vRight
+
+                vLeft += v0
+                vRight += v0
+        else:
+            if verbose:
+                print("[SUCCESS] Reached destination!")
+            reachedFlag = True
+    else:
+
+        reference = "Waypoint"
         if verbose:
-            print("OBJECTIVE: waypoint") 
-        if( pose["DistanceToPoint"] <= tolerancePoint ):
-            if point < len(path)-1:
-                point += 1
-            
-        
-        vRight = v0*pose["RotationToPoint"]/np.pi
+            print("OBJECTIVE: waypoint")
+
+        vRight = v0*pose["RotationToWaypoint"]/np.pi
         vLeft = -vRight
 
         vLeft += v0
         vRight += v0
-        
 
-    return vLeft, vRight, reachedFlag, pose, point
+    return vLeft, vRight, reachedFlag, pose, reference
 
 def turnRightInPlace( verbose=False ):
     vLeft = turnSpeed
@@ -361,7 +328,6 @@ def updateSpeed( vLeft, vRight, verbose=False ):
     error = sim.simxSetJointTargetVelocity(clientID, rightMotorHandle, vRight, sim.simx_opmode_streaming)
 #------------------------------------------------------------------------------#
 
-
 #---------------------------- ESTABLISH CONNECTION ----------------------------#
 
 import time
@@ -418,36 +384,15 @@ sim.simxGetFloatSignal(clientID, "zFlagPos", sim.simx_opmode_streaming)
 sim.simxGetFloatSignal(clientID, "compassAngle", sim.simx_opmode_streaming)
 #------------------------------------------------------------------------------#
 
-#--------------------------------- BUILD PATH ---------------------------------#
-
-from buildPath import buildPath
-
-sceneID = sys.argv[1]
-
-errorFlagPos = errorPioneerPos = True
-
-while( errorFlagPos or errorPioneerPos ):
-    errorFlagPos, flagPos = readPositionSignal( "Flag" )
-    errorPioneerPos, pioneerPos = readPositionSignal("Pioneer")
-
-origin = np.array( [pioneerPos[0], pioneerPos[1]] )
-destination = np.array( [flagPos[0], flagPos[1]] )
-
-path = buildPath(sceneID, origin, destination)
-point = 0
-
-
-#------------------------------------------------------------------------------#
-
 #------------------------------- ACTUATION -------------------------------#
 while sim.simxGetConnectionId(clientID) != -1:
 
-    vLeft, vRight, reachedFlag, pose, point = moveTowardsFlag( point, path )
+    vLeft, vRight, reachedFlag, pose, reference = moveTowardsFlag( )
     if( reachedFlag ):
         updateSpeed( vLeft, vRight )
         continue
 
-    vLeft, vRight = followWall( vLeft, vRight, pose, "Point" )
+    vLeft, vRight = followWall( vLeft, vRight, pose, reference )
 
     # update motor speeds
     updateSpeed( vLeft, vRight )

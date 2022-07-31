@@ -29,9 +29,14 @@ except:
     print ('--------------------------------------------------------------')
     print ('')
 
+#------------------------------ GLOBAL VARIABLES ------------------------------#
+
+v0 = 2.0         # default speed
+turnSpeed = 1.0  # default turning speeds
+#------------------------------------------------------------------------------#
+
+
 #------------------------------------ UTILS -----------------------------------#
-v0 = 2.0
-turnSpeed = 1.0
 
 def getHandle( path ):
     """
@@ -95,11 +100,13 @@ def getPioneerPose():
 
     return error, pose
 
-def positionRelativeToPoint( reference, pose, verbose=False ):
+def positionRelativeToPoint( reference, pointPos, errorPointPos, pose, verbose=False ):
     """
-    Computes the robot pose with respect to the flag or waypoint.
+    Computes the robot pose with respect to a given reference.
     Arguments:
-    - reference: point with respect to which the pose must be computed
+    - reference: point name
+    - pointPos: point with respect to which the pose must be computed ( [x, y] or [x, y, z] )
+    - errorPointPos: whether the position given is corrupted or not
     - pose: dictionary with keys:
                 "Position": robot position
                 "Orientation": robot orientation
@@ -111,8 +118,6 @@ def positionRelativeToPoint( reference, pose, verbose=False ):
                 "RotationTo<reference>": angle between robots orientation and the line through robot and point ([-pi, pi])
                 "<reference>Position": point position
     """
-    
-    errorPointPos, pointPos = readPositionSignal( reference )
 
     pose.update( {"DistanceTo"+reference:   0.0,
                     "AngleTo"+reference:    0.0,
@@ -124,7 +129,7 @@ def positionRelativeToPoint( reference, pose, verbose=False ):
         pose[reference+"Position"] = pointPos
 
         # compute distance to point
-        pose["DistanceTo"+reference] = np.linalg.norm( np.array( pose["Position"][0:-1] ) - np.array( pointPos[0:-1] ) )
+        pose["DistanceTo"+reference] = np.linalg.norm( np.array( pose["Position"][0:2] ) - np.array( pointPos[0:2] ) )
 
         # compute angle to point
         pointTX = pointPos[0] - pose["Position"][0]
@@ -144,57 +149,6 @@ def positionRelativeToPoint( reference, pose, verbose=False ):
         if verbose:
             print( "Orientation: {:.2f} -- Angle to {}: {:.2f} -- Orientation to {}: {:.2f} -- Distance to {}: {:.2f}".format( pose["Orientation"], reference, pose["AngleTo"+reference], reference, pose["RotationTo"+reference], reference, pose["DistanceTo"+reference] ) )
     
-    return errorPointPos, pose
-
-def positionRelativeToArtificialPoint( point, pose, verbose=False ):
-    """
-    Computes the robot pose with respect to the point.
-    Arguments:
-    - point: (x, y)
-    - pose: dictionary with keys:
-                "Position": robot position
-                "Orientation": robot orientation
-    Return:
-    - error: whether there was an error reading the signals
-    - pose: dictionary with additional keys: 
-                "DistanceToPoint": distance from robot to point
-                "AngleToPoint": angle between the line through robot and point and the scene's x axis ([0, 2pi])
-                "RotationToPoint": angle between robots orientation and the line through robot and point ([-pi, pi])
-                "PointPosition": point position
-    """
-    
-    errorPointPos = False
-
-    pose.update( {"DistanceToPoint":   0.0,
-                    "AngleToPoint":    0.0,
-                    "RotationToPoint": 0.0,
-                    "PointPosition":   0.0} )
-
-    if not errorPointPos:
-
-        pose["PointPosition"] = point
-
-        # compute distance to point
-        pose["DistanceToPoint"] = np.linalg.norm( np.array( pose["Position"][0:-1] ) - np.array( point ) )
-
-        # compute angle to point
-        pointTX = point[0] - pose["Position"][0]
-        pointTY = point[1] - pose["Position"][1]
-
-        pose["AngleToPoint"] = np.arctan2( pointTY, pointTX )
-        pose["AngleToPoint"] = pose["AngleToPoint"] if pose["AngleToPoint"]>=0 else 2*np.pi+pose["AngleToPoint"] # [0, 2pi]
-
-        # compute angular difference between orientation and relative position
-        pose["RotationToPoint"] = pose["AngleToPoint"] - pose["Orientation"]
-
-        if pose["RotationToPoint"] > np.pi:
-            pose["RotationToPoint"] -= 2.0*np.pi
-        elif pose["RotationToPoint"] < -np.pi:
-            pose["RotationToPoint"] += 2.0*np.pi
-
-        if verbose:
-            print( "Orientation: {:.2f} -- Angle to {}: {:.2f} -- Orientation to {}: {:.2f} -- Distance to {}: {:.2f}".format( pose["Orientation"], reference, pose["AngleToPoint"], reference, pose["RotationToPoint"], reference, pose["DistanceToPoint"] ) )
-    
     return pose
 
 def moveTowardsFlag( point, path, verbose=False ):
@@ -211,16 +165,16 @@ def moveTowardsFlag( point, path, verbose=False ):
     - reference: which objective the robot is pursuing
     """
 
-    print("#{}: {}".format(point, path[point]))
+    print("Waypoint #{}: {}".format(point, path[point]))
 
-    toleranceFlag = 1.0
+    # distance within which it is considered the robot has reached the desired point
+    toleranceFlag = 1.0    
     tolerancePoint = 5.0
 
     _, pose = getPioneerPose()
-    errorFlag, pose = positionRelativeToPoint( "Flag", pose, verbose )
-    # errorWaypoint, pose = positionRelativeToPoint( "Waypoint", pose, verbose )
-
-    pose = positionRelativeToArtificialPoint( path[point], pose, verbose )
+    errorFlagPos, flagPos = readPositionSignal( "Flag" )
+    pose = positionRelativeToPoint( "Flag", flagPos, errorFlagPos, pose, verbose )
+    pose = positionRelativeToPoint( "Point", path[point], False, pose, verbose )
 
     vLeft = 0
     vRight = 0
@@ -231,13 +185,10 @@ def moveTowardsFlag( point, path, verbose=False ):
             print("[SUCCESS] Reached destination!")
         reachedFlag = True  
     else:     
-        if verbose:
-            print("OBJECTIVE: waypoint") 
         if( pose["DistanceToPoint"] <= tolerancePoint ):
             if point < len(path)-1:
                 point += 1
-            
-        
+
         vRight = v0*pose["RotationToPoint"]/np.pi
         vLeft = -vRight
 
@@ -267,6 +218,96 @@ def driveForward( verbose=False ):
         print(" -- Drive forward") 
     return vLeft, vRight
 
+def getSonarReadings( verbose=False ):
+    """
+    Get proximity sensor readings.
+    """
+
+    # Pioneer sonar distribution:
+    #     2  3  4  5
+    #  1 /          \ 6
+    #  0 |          | 7
+    #    |          |
+    # 15 |          | 8
+    # 14 \          / 9
+    #     13 12 11 10
+
+    dist = []
+
+    noDetectionDist=0.5
+    maxDetectionDist=0.2
+    detect=[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.]
+
+    for i in range(16):
+        error, state, coord, _, _ = sim.simxReadProximitySensor(clientID, sensorHandle[i],sim.simx_opmode_buffer)
+
+        if error or state == 0:
+            dist += [ np.inf ]
+        else:
+            dist += [ np.linalg.norm( coord[0:-1] ) ]   # compute 2D distance to obstacle
+
+        if verbose:
+            print("{}({:.2f})".format( i, dist[-1] ), end=" ")
+
+        if error == 0:
+            d = coord[2]
+            if state > 0 and d < noDetectionDist:
+                if d < maxDetectionDist:
+                    d = maxDetectionDist
+
+                detect[i] = 1-((d-maxDetectionDist) / (noDetectionDist-maxDetectionDist))
+            else:
+                detect[i] = 0
+        else:
+            detect[i] = 0
+
+    if verbose:
+        print( end="\n" )
+    
+    return dist, detect
+
+def braitenberg( vLeft, vRight, pose, reference, verbose=False ):
+    """
+    Braitenberg obstacle avoidance behavior.
+    Arguments:
+    - vLeft: left motor speed computed by go-to-destination module
+    - vRight: right motor speed computed by go-to-destination module
+    - pose: dictionary computed by positionRelativeToFlag()
+    - reference: which objective the robot is pursuing
+    Return:
+    - vLeft: left motor speed
+    - vRight: right motor
+    """
+
+    uncertainty = 0.1
+    conversionFactor = 10.0
+
+    braitenbergL=[-0.2,-0.4,-0.6,-0.8,-1,-1.2,-1.4,-1.6, 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+    braitenbergR=[-1.6,-1.4,-1.2,-1,-0.8,-0.6,-0.4,-0.2, 0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+
+    dist, detect = getSonarReadings( verbose )
+
+    # frontObstacle = ( (dist[3] != np.inf) or (dist[4] != np.inf) )
+    frontObstacle = True 
+
+    if frontObstacle:
+        # if conversionFactor*np.min( [dist[3], dist[4]] ) < pose["DistanceToFlag"] - uncertainty:
+        if conversionFactor*np.min( dist ) < pose["DistanceToFlag"] - uncertainty:
+
+            vLeft = v0
+            vRight = v0
+
+            for i in range(16):
+                vLeft  = vLeft  + braitenbergL[i] * detect[i]
+                vRight = vRight + braitenbergR[i] * detect[i]
+
+        elif verbose:
+            print( " -- Go to destination (flag closer then obstacle)" )
+    
+    return vLeft, vRight
+
+
+
 def followWall( vLeft, vRight, pose, reference, verbose=False ):
     """
     Wall-folowing behavior. Superseeds go-to-destination bahevior whenever there is a obstacle on line-of-sight.
@@ -292,19 +333,7 @@ def followWall( vLeft, vRight, pose, reference, verbose=False ):
     # 14 \          / 9
     #     13 12 11 10
     
-    dist = []
-    for i in range(16):
-        error, state, coord, _, _ = sim.simxReadProximitySensor(clientID, sensorHandle[i],sim.simx_opmode_buffer)
-        if error or state == 0:
-            dist += [ np.inf ]
-        else:
-            dist += [ np.linalg.norm( coord[0:-1] ) ]   # compute 2D distance to obstacle
-
-        if verbose:
-            print("{}({:.2f})".format( i, dist[-1] ), end=" ")
-    if verbose:
-        print()
-
+    dist, _ = getSonarReadings( verbose )
 
     leftWall = ( dist[0] != np.inf )
     rightWall = ( dist[7] != np.inf )
@@ -411,10 +440,6 @@ sim.simxGetFloatSignal(clientID, "xFlagPos", sim.simx_opmode_streaming)
 sim.simxGetFloatSignal(clientID, "yFlagPos", sim.simx_opmode_streaming)
 sim.simxGetFloatSignal(clientID, "zFlagPos", sim.simx_opmode_streaming)
 
-# sim.simxGetFloatSignal(clientID, "xWaypointPos", sim.simx_opmode_streaming)
-# sim.simxGetFloatSignal(clientID, "yWaypointPos", sim.simx_opmode_streaming)
-# sim.simxGetFloatSignal(clientID, "zWaypointPos", sim.simx_opmode_streaming)
-
 sim.simxGetFloatSignal(clientID, "compassAngle", sim.simx_opmode_streaming)
 #------------------------------------------------------------------------------#
 
@@ -433,24 +458,27 @@ while( errorFlagPos or errorPioneerPos ):
 origin = np.array( [pioneerPos[0], pioneerPos[1]] )
 destination = np.array( [flagPos[0], flagPos[1]] )
 
-path = buildPath(sceneID, origin, destination)
+path = buildPath(sceneID, origin, destination, showPath=True)
 point = 0
 
 
 #------------------------------------------------------------------------------#
 
-#------------------------------- ACTUATION -------------------------------#
+#---------------------------------- ACTUATION ---------------------------------#
+verbose = False
+
 while sim.simxGetConnectionId(clientID) != -1:
 
-    vLeft, vRight, reachedFlag, pose, point = moveTowardsFlag( point, path )
+    vLeft, vRight, reachedFlag, pose, point = moveTowardsFlag( point, path, verbose=verbose )
     if( reachedFlag ):
-        updateSpeed( vLeft, vRight )
+        updateSpeed( vLeft, vRight, verbose=verbose )
         continue
 
-    vLeft, vRight = followWall( vLeft, vRight, pose, "Point" )
+    vLeft, vRight = followWall( vLeft, vRight, pose, "Point", verbose=verbose )
+    # vLeft, vRight = braitenberg( vLeft, vRight, pose, "Point", verbose=verbose )
 
     # update motor speeds
-    updateSpeed( vLeft, vRight )
+    updateSpeed( vLeft, vRight, verbose=verbose )
 
 # close connection
 sim.simxFinish(clientID) 

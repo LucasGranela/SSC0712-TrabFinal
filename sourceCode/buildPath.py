@@ -65,63 +65,76 @@ def getImageWalls(img):
 
     return wall_image
 
-def buildPath( sceneID, originScene, destinationScene ):
+def buildPath( sceneID, originScene, destinationScene, showPath=False ):
     """
     Find path to destination based on scene image.
     Parameters:
     - sceneID: scene number, used to retreive image
     - originScene: pioneer coordinates
     - destinationScene: flag coordinates
+    - showPath: whether to display images
     """
 
     IMAGE_NAME = './image{}.jpeg'.format( sceneID )
     img = cv.imread(IMAGE_NAME, cv.IMREAD_COLOR)
 
+    # extract walls (ocuppancy grid)
     lines_image = getImageWalls(img)
 
-    # pioneer position
+    # get pioneer and flag position
     origin = convertFromSceneCoord( originScene[0], originScene[1], img.shape[0], img.shape[1])
     destination = convertFromSceneCoord( destinationScene[0], destinationScene[1], img.shape[0], img.shape[1])
 
+    # plot origin and destination on image
     cv.circle(img, (origin[0], origin[1]), 5, (0,0,255), -1)
     cv.circle(img, (destination[0], destination[1]), 5, (0,0,255), -1)
 
+    # reduce occupancy grid dimensionality for A*
     target=50
     reduced_grid = cv.resize(lines_image, dsize=(target,target), interpolation=cv.INTER_AREA)
     reduced_grid = np.sum(reduced_grid, axis=-1)
     reduced_grid = np.where(reduced_grid > 50, 1, 0)
+
+    # generate image of reduced grid (blue = walls)
     reduced_image = np.zeros( shape=(50,50,3), dtype=np.uint8 )
     reduced_image[:, :, 0] = 255*reduced_grid
 
+    # determine origin and destination position on the grid
     img_height = img.shape[0]
     img_width  = img.shape[1]
-
     originGrid = np.array( [int(origin[0]*target/img_width), int(origin[1]*target/img_height)] )
     destinationGrid = np.array( [int(destination[0]*target/img_width), int(destination[1]*target/img_height)] )
 
+    # plot origin and destination on the grid (red)
     reduced_image[originGrid[1], originGrid[0], 2] = 255
     reduced_image[destinationGrid[1], destinationGrid[0], 2] = 255
 
+    # find path using A* algorithm
     path = astar( reduced_grid, (originGrid[1], originGrid[0]), (destinationGrid[1], destinationGrid[0]) )
     path.reverse()
 
+    # plot path on the original image
     image_path = []
     for point in path:
+        # convert to original image coordinates
         x = int(point[1]*img_width/target)
         y = int(point[0]*img_height/target)
         image_path.append( (x,y) )
         cv.circle(img, (x, y), 5, (0,0,255), -1)
 
+    # convert to scene coordinates
     scene_path = [ convertToSceneCoord( point[0], point[1], img_height, img_width ) for point in image_path ]
 
+    # plot path on the grid (green)
     for point in path:
         reduced_image[point[0], point[1], 1] = 255
 
-    # cv.imshow('Original image',cv.resize(img, dsize=None, fx=0.7, fy=0.7)) 
-    # cv.imshow('Extracted walls',cv.resize(lines_image, dsize=None, fx=0.7, fy=0.7))
-    # cv.imshow('Grid', cv.resize(reduced_image, dsize=(600,600), interpolation=cv.INTER_NEAREST) ) 
+    if showPath:
+        cv.imshow('Extracted walls (press any key to continue)',cv.resize(lines_image, dsize=None, fx=0.7, fy=0.7))
+        cv.imshow('A* (press any key to continue)', cv.resize(reduced_image, dsize=(600,600), interpolation=cv.INTER_NEAREST) ) 
+        cv.imshow('Waypoint (press any key to continue)',cv.resize(img, dsize=None, fx=0.7, fy=0.7)) 
 
-    # cv.waitKey(0)
-    # cv.destroyAllWindows()
+        cv.waitKey(0)
+        cv.destroyAllWindows()
 
     return scene_path

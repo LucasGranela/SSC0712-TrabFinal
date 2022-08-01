@@ -28,17 +28,13 @@ def getImageWalls(img):
     mask_wall = cv.inRange(img, lower_color_wall, upper_color_wall)
     lines_wall = cv.HoughLinesP(mask_wall, 1, np.pi / 180, 3, np.array([]), 100, 50)
 
-    cv.imshow('mask_wall',cv.resize(mask_wall, dsize=None, fx=0.7, fy=0.7)) 
-
     lower_color_wall = np.array([210,210,210])
     upper_color_wall = np.array([255,255,255])
     mask_write = cv.inRange(img, lower_color_wall, upper_color_wall)
     lines_write = cv.HoughLinesP(mask_write, 1, np.pi / 180, 3, np.array([]), 30, 30)
 
-    cv.imshow('mask_write',cv.resize(mask_write, dsize=None, fx=0.7, fy=0.7)) 
-
     if lines_wall is not None and lines_write is not None:
-        lines = np.append( lines_wall, lines_black, axis=0 )
+        lines = np.append( lines_wall, lines_write, axis=0 )
     elif lines_wall is not None:
         lines = lines_wall
     else:
@@ -49,11 +45,9 @@ def getImageWalls(img):
     mask_black = cv.inRange(img, lower_color_black, upper_color_black)
     lines_black = cv.HoughLinesP(mask_black, 1, np.pi / 180, 7, np.array([]), 40, 27)
 
-    cv.imshow('mask_black',cv.resize(mask_black, dsize=None, fx=0.7, fy=0.7)) 
-
-    if lines.any():
+    if lines.any() and lines_black is not None:
         lines = np.append( lines, lines_black, axis=0 )
-    else:
+    elif lines_black is not None:
         lines = lines_black
 
     for line in lines:
@@ -76,7 +70,7 @@ def getCorners(img):
 
 
 
-IMAGE_NAME = 'image2.jpeg'
+IMAGE_NAME = 'image3.jpeg'
 img = cv.imread(IMAGE_NAME, cv.IMREAD_COLOR)
 
 lines, lines_image = getImageWalls(img)

@@ -288,11 +288,11 @@ def braitenberg( vLeft, vRight, pose, reference, verbose=False ):
     dist, detect = getSonarReadings( verbose )
 
     # frontObstacle = ( (dist[3] != np.inf) or (dist[4] != np.inf) )
-    frontObstacle = True 
+    frontObstacle = sum( dist[2:5+1] ) != np.inf
 
     if frontObstacle:
         # if conversionFactor*np.min( [dist[3], dist[4]] ) < pose["DistanceToFlag"] - uncertainty:
-        if conversionFactor*np.min( dist ) < pose["DistanceToFlag"] - uncertainty:
+        if conversionFactor*np.min( dist ) < pose["DistanceToPoint"] - uncertainty:
 
             vLeft = v0
             vRight = v0
@@ -474,8 +474,8 @@ while sim.simxGetConnectionId(clientID) != -1:
         updateSpeed( vLeft, vRight, verbose=verbose )
         continue
 
-    vLeft, vRight = followWall( vLeft, vRight, pose, "Point", verbose=verbose )
-    # vLeft, vRight = braitenberg( vLeft, vRight, pose, "Point", verbose=verbose )
+    # vLeft, vRight = followWall( vLeft, vRight, pose, "Point", verbose=verbose )
+    vLeft, vRight = braitenberg( vLeft, vRight, pose, "Point", verbose=verbose )
 
     # update motor speeds
     updateSpeed( vLeft, vRight, verbose=verbose )

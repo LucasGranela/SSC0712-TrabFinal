@@ -52,12 +52,27 @@ def getImageWalls(img):
     mask_wall = cv.inRange(img, lower_color_wall, upper_color_wall)
     lines_wall = cv.HoughLinesP(mask_wall, 1, np.pi / 180, 3, np.array([]), 100, 50)
 
+    lower_color_wall = np.array([210,210,210])
+    upper_color_wall = np.array([255,255,255])
+    mask_write = cv.inRange(img, lower_color_wall, upper_color_wall)
+    lines_write = cv.HoughLinesP(mask_write, 1, np.pi / 180, 3, np.array([]), 30, 30)
+
+    if lines_wall is not None and lines_write is not None:
+        lines = np.append( lines_wall, lines_write, axis=0 )
+    elif lines_wall is not None:
+        lines = lines_wall
+    else:
+        lines = lines_write
+
     lower_color_black = np.array([0,0,0])
     upper_color_black = np.array([2,2,2])
     mask_black = cv.inRange(img, lower_color_black, upper_color_black)
-    lines_black = cv.HoughLinesP(mask_black, 1, np.pi / 180, 7, np.array([]), 30, 40)
+    lines_black = cv.HoughLinesP(mask_black, 1, np.pi / 180, 7, np.array([]), 40, 27)
 
-    lines = np.append( lines_wall, lines_black, axis=0 )
+    if lines.any() and lines_black is not None:
+        lines = np.append( lines, lines_black, axis=0 )
+    elif lines_black is not None:
+        lines = lines_black
 
     for line in lines:
         x1,y1,x2,y2 = line.ravel()

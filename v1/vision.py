@@ -70,7 +70,7 @@ def getCorners(img):
 
 
 
-IMAGE_NAME = 'image3.jpeg'
+IMAGE_NAME = 'image2.jpeg'
 img = cv.imread(IMAGE_NAME, cv.IMREAD_COLOR)
 
 lines, lines_image = getImageWalls(img)

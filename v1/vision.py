@@ -21,19 +21,21 @@ def convertFromSceneCoord( sceneX, sceneY, img_height, img_width ):
     return (imageX, imageY)
 
 def getImageWalls(img):
-
     wall_image = np.copy(img) * 0  # creating a blank to draw lines on
 
     lower_color_wall = np.array([100,100,100])
     upper_color_wall = np.array([136,143,146])
     mask_wall = cv.inRange(img, lower_color_wall, upper_color_wall)
-
     lines_wall = cv.HoughLinesP(mask_wall, 1, np.pi / 180, 3, np.array([]), 100, 50)
+
+    cv.imshow('mask_wall',cv.resize(mask_wall, dsize=None, fx=0.7, fy=0.7)) 
 
     lower_color_wall = np.array([210,210,210])
     upper_color_wall = np.array([255,255,255])
     mask_write = cv.inRange(img, lower_color_wall, upper_color_wall)
-    lines_write = cv.HoughLinesP(mask_write, 1, np.pi / 180, 3, np.array([]), 100, 50)
+    lines_write = cv.HoughLinesP(mask_write, 1, np.pi / 180, 3, np.array([]), 30, 30)
+
+    cv.imshow('mask_write',cv.resize(mask_write, dsize=None, fx=0.7, fy=0.7)) 
 
     if lines_wall is not None and lines_write is not None:
         lines = np.append( lines_wall, lines_black, axis=0 )
@@ -45,7 +47,9 @@ def getImageWalls(img):
     lower_color_black = np.array([0,0,0])
     upper_color_black = np.array([2,2,2])
     mask_black = cv.inRange(img, lower_color_black, upper_color_black)
-    lines_black = cv.HoughLinesP(mask_black, 1, np.pi / 180, 7, np.array([]), 30, 40)
+    lines_black = cv.HoughLinesP(mask_black, 1, np.pi / 180, 7, np.array([]), 40, 27)
+
+    cv.imshow('mask_black',cv.resize(mask_black, dsize=None, fx=0.7, fy=0.7)) 
 
     if lines.any():
         lines = np.append( lines, lines_black, axis=0 )
@@ -61,7 +65,7 @@ def getImageWalls(img):
 def getCorners(img):
     corners_image = np.copy(img)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    corners = cv.goodFeaturesToTrack(gray, 50, 0.001, 5)
+    corners = cv.goodFeaturesToTrack(gray, 100, 0.001, 3)
     corners = np.int0(corners)
 
     for corner in corners:
@@ -72,7 +76,7 @@ def getCorners(img):
 
 
 
-IMAGE_NAME = 'image1.jpeg'
+IMAGE_NAME = 'image2.jpeg'
 img = cv.imread(IMAGE_NAME, cv.IMREAD_COLOR)
 
 lines, lines_image = getImageWalls(img)

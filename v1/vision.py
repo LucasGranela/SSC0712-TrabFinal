@@ -75,8 +75,10 @@ def getCorners(img):
     return corners, corners_image
 
 
+import sys
+sceneID = sys.argv[1]
 
-IMAGE_NAME = 'image2.jpeg'
+IMAGE_NAME = '../imgs/image{}.jpeg'.format(sceneID)
 img = cv.imread(IMAGE_NAME, cv.IMREAD_COLOR)
 
 lines, lines_image = getImageWalls(img)

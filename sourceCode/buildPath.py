@@ -4,6 +4,8 @@ from nbformat import convert
 import numpy as np
 from astar import astar
 
+image_eq_size = 27.0
+
 def convertToSceneCoord( imageX, imageY, img_height, img_width ):
     """
     Convert image coordinates to CoppeliaSim coordinates.
@@ -50,12 +52,16 @@ def getImageWalls(img):
     lower_color_wall = np.array([100,100,100])
     upper_color_wall = np.array([136,143,146])
     mask_wall = cv.inRange(img, lower_color_wall, upper_color_wall)
-    lines_wall = cv.HoughLinesP(mask_wall, 1, np.pi / 180, 3, np.array([]), 100, 50)
+    lines_wall = cv.HoughLinesP(mask_wall, 1, np.pi / 180, 1, np.array([]), 100, 50)
+
+    # cv.imshow('mask_wall',cv.resize(mask_wall, dsize=None, fx=0.7, fy=0.7)) 
 
     lower_color_wall = np.array([210,210,210])
     upper_color_wall = np.array([255,255,255])
     mask_write = cv.inRange(img, lower_color_wall, upper_color_wall)
-    lines_write = cv.HoughLinesP(mask_write, 1, np.pi / 180, 3, np.array([]), 30, 30)
+    lines_write = cv.HoughLinesP(mask_write, 1, np.pi / 180, 1, np.array([]), 30, 30)
+
+    # cv.imshow('mask_write',cv.resize(mask_write, dsize=None, fx=0.7, fy=0.7)) 
 
     if lines_wall is not None and lines_write is not None:
         lines = np.append( lines_wall, lines_write, axis=0 )
@@ -68,6 +74,8 @@ def getImageWalls(img):
     upper_color_black = np.array([2,2,2])
     mask_black = cv.inRange(img, lower_color_black, upper_color_black)
     lines_black = cv.HoughLinesP(mask_black, 1, np.pi / 180, 7, np.array([]), 40, 27)
+
+    # cv.imshow('mask_black',cv.resize(mask_black, dsize=None, fx=0.7, fy=0.7)) 
 
     if lines.any() and lines_black is not None:
         lines = np.append( lines, lines_black, axis=0 )
@@ -90,7 +98,7 @@ def buildPath( sceneID, originScene, destinationScene, showPath=False ):
     - showPath: whether to display images
     """
 
-    IMAGE_NAME = './image{}.jpeg'.format( sceneID )
+    IMAGE_NAME = '../imgs/image{}.jpeg'.format( sceneID )
     img = cv.imread(IMAGE_NAME, cv.IMREAD_COLOR)
 
     # extract walls (ocuppancy grid)

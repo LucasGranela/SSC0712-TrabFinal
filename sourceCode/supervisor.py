@@ -169,7 +169,7 @@ def moveTowardsFlag( point, path, verbose=False ):
 
     # distance within which it is considered the robot has reached the desired point
     toleranceFlag = 1.0    
-    tolerancePoint = 5.0
+    tolerancePoint = 1.0
 
     _, pose = getPioneerPose()
     errorFlagPos, flagPos = readPositionSignal( "Flag" )
@@ -180,9 +180,11 @@ def moveTowardsFlag( point, path, verbose=False ):
     vRight = 0
     reachedFlag = False
 
+    # print("Distance to point: ", pose["DistanceToPoint"])
+
     if( pose["DistanceToFlag"] <= toleranceFlag ):
-        if verbose:
-            print("[SUCCESS] Reached destination!")
+        # if verbose:
+        print("[SUCCESS] Reached destination!")
         reachedFlag = True  
     else:     
         if( pose["DistanceToPoint"] <= tolerancePoint ):
@@ -288,7 +290,8 @@ def braitenberg( vLeft, vRight, pose, reference, verbose=False ):
     dist, detect = getSonarReadings( verbose )
 
     # frontObstacle = ( (dist[3] != np.inf) or (dist[4] != np.inf) )
-    frontObstacle = sum( dist[2:5+1] ) != np.inf
+    # frontObstacle = sum( detect[1:6+1] ) != 0
+    frontObstacle = True
 
     if frontObstacle:
         # if conversionFactor*np.min( [dist[3], dist[4]] ) < pose["DistanceToFlag"] - uncertainty:

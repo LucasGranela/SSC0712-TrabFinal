@@ -477,8 +477,8 @@ while sim.simxGetConnectionId(clientID) != -1:
         updateSpeed( vLeft, vRight, verbose=verbose )
         continue
 
-    vLeft, vRight = followWall( vLeft, vRight, pose, "Point", verbose=verbose )
-    # vLeft, vRight = braitenberg( vLeft, vRight, pose, "Point", verbose=verbose )
+    # vLeft, vRight = followWall( vLeft, vRight, pose, "Point", verbose=verbose )
+    vLeft, vRight = braitenberg( vLeft, vRight, pose, "Point", verbose=verbose )
 
     # update motor speeds
     updateSpeed( vLeft, vRight, verbose=verbose )

@@ -461,7 +461,7 @@ while( errorFlagPos or errorPioneerPos ):
 origin = np.array( [pioneerPos[0], pioneerPos[1]] )
 destination = np.array( [flagPos[0], flagPos[1]] )
 
-path = buildPath(sceneID, origin, destination, showPath=True)
+path = buildPath(sceneID, origin, destination, showWaypoint=True, showMaps=False)
 point = 0
 
 
@@ -477,8 +477,8 @@ while sim.simxGetConnectionId(clientID) != -1:
         updateSpeed( vLeft, vRight, verbose=verbose )
         continue
 
-    # vLeft, vRight = followWall( vLeft, vRight, pose, "Point", verbose=verbose )
-    vLeft, vRight = braitenberg( vLeft, vRight, pose, "Point", verbose=verbose )
+    vLeft, vRight = followWall( vLeft, vRight, pose, "Point", verbose=verbose )
+    # vLeft, vRight = braitenberg( vLeft, vRight, pose, "Point", verbose=verbose )
 
     # update motor speeds
     updateSpeed( vLeft, vRight, verbose=verbose )

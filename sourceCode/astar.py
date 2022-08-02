@@ -11,6 +11,7 @@ def heuristic(a, b):
 def astar(array, start, goal):
 
     neighbors = [(0,1),(0,-1),(1,0),(-1,0)]
+    # neighbors = [(0,1),(0,-1),(1,0),(-1,0),(1,1),(1,-1),(-1,1),(-1,-1)]
 
     close_set = set()
     came_from = {}

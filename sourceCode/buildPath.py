@@ -88,7 +88,7 @@ def getImageWalls(img):
 
     return wall_image
 
-def buildPath( sceneID, originScene, destinationScene, showPath=False ):
+def buildPath( sceneID, originScene, destinationScene, showWaypoint=False, showMaps=False ):
     """
     Find path to destination based on scene image.
     Parameters:
@@ -140,23 +140,29 @@ def buildPath( sceneID, originScene, destinationScene, showPath=False ):
     image_path = []
     for point in path:
         # convert to original image coordinates
-        x = int(point[1]*img_width/target)
-        y = int(point[0]*img_height/target)
+        x = int( (point[1] + 0.5)*img_width/target ) # 0.5 to centralize
+        y = int( (point[0] + 0.5)*img_height/target )
         image_path.append( (x,y) )
         cv.circle(img, (x, y), 5, (0,0,255), -1)
 
     # convert to scene coordinates
     scene_path = [ convertToSceneCoord( point[0], point[1], img_height, img_width ) for point in image_path ]
 
+    i = 0
+    for point in scene_path:
+        print("Waypoint #{}: {}".format(i, point))
+        i += 1
+
     # plot path on the grid (green)
     for point in path:
         reduced_image[point[0], point[1], 1] = 255
 
-    if showPath:
+    if showMaps:
         cv.imshow('Extracted walls (press any key to continue)',cv.resize(lines_image, dsize=None, fx=0.7, fy=0.7))
         cv.imshow('A* (press any key to continue)', cv.resize(reduced_image, dsize=(600,600), interpolation=cv.INTER_NEAREST) ) 
+    if showWaypoint:
         cv.imshow('Waypoint (press any key to continue)',cv.resize(img, dsize=None, fx=0.7, fy=0.7)) 
-
+    if showMaps or showWaypoint:
         cv.waitKey(0)
         cv.destroyAllWindows()
 

@@ -26,7 +26,7 @@ def getImageWalls(img):
     lower_color_wall = np.array([100,100,100])
     upper_color_wall = np.array([136,143,146])
     mask_wall = cv.inRange(img, lower_color_wall, upper_color_wall)
-    lines_wall = cv.HoughLinesP(mask_wall, 1, np.pi / 180, 1, np.array([]), 100, 50)
+    lines_wall = cv.HoughLinesP(mask_wall, 1, np.pi / 180, 1, np.array([]), 30, 50)
 
     cv.imshow('mask_wall',cv.resize(mask_wall, dsize=None, fx=0.7, fy=0.7)) 
 
